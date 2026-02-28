@@ -1,0 +1,39 @@
+name: Build ESP32-C3 Firmware
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v1
+
+      - name: Install ESP32 core
+        run: |
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+
+      - name: Install libraries (Adafruit MPU6050)
+        run: |
+          arduino-cli lib update-index
+          arduino-cli lib install "Adafruit MPU6050" "Adafruit Unified Sensor"
+
+      - name: Compile (ESP32-C3 Dev Module)
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32c3 .
+
+      - name: Upload BIN artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-bin
+          path: |
+            build/*/*.bin
+            build/*/*.elf
+            build/*/*.map

@@ -2,7 +2,7 @@ name: Build ESP32-C3 Firmware
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -13,72 +13,78 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # -------- Install Arduino CLI (FIXED: export PATH in same step) --------
+      # ---------- Install Arduino CLI ----------
       - name: Install Arduino CLI
         shell: bash
         run: |
           set -e
+          mkdir -p "$HOME/arduino-cli"
+          cd "$HOME/arduino-cli"
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
-          # installer puts it into: $GITHUB_WORKSPACE/bin/arduino-cli
-          ls -lah "${GITHUB_WORKSPACE}/bin" || true
-
-          # Make it available RIGHT NOW (same step) + future steps
-          export PATH="${GITHUB_WORKSPACE}/bin:$PATH"
-          echo "${GITHUB_WORKSPACE}/bin" >> "$GITHUB_PATH"
-
-          which arduino-cli
+          echo "$HOME/arduino-cli/bin" >> $GITHUB_PATH
           arduino-cli version
 
-      # -------- Install ESP32 core --------
-      - name: Install ESP32 core
+      # ---------- Setup Arduino CLI config ----------
+      - name: Init Arduino CLI
         shell: bash
         run: |
           set -e
-          arduino-cli config init --overwrite
-          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
-          arduino-cli core install esp32:esp32 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
-          arduino-cli core list
+          arduino-cli config init
+          arduino-cli config set board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli config dump
 
-      # -------- Install Libraries --------
+      # ---------- Install ESP32 core (LOCKED) ----------
+      - name: Install ESP32 core (2.0.17 locked)
+        shell: bash
+        run: |
+          set -e
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32@2.0.17
+
+      # ---------- Install Libraries ----------
       - name: Install Libraries
         shell: bash
         run: |
           set -e
           arduino-cli lib update-index
+          arduino-cli lib install "ESP Async WebServer"
+          arduino-cli lib install "AsyncTCP"
           arduino-cli lib install "Adafruit MPU6050"
           arduino-cli lib install "Adafruit Unified Sensor"
-          arduino-cli lib install "AsyncTCP"
-          arduino-cli lib install "ESP Async WebServer" || arduino-cli lib install "ESPAsyncWebServer"
+          arduino-cli lib install "Adafruit BusIO"
 
-      # -------- Prepare Sketch Folder --------
+      # ---------- Prepare Sketch Folder ----------
+      # Arduino CLI needs: folder name == .ino name
       - name: Prepare Sketch Folder
         shell: bash
         run: |
           set -e
           mkdir -p sketch/drone
-          cp -f drone.ino sketch/drone/drone.ino
-          ls -lah sketch/drone
+          cp drone.ino sketch/drone/drone.ino
+          ls -la sketch/drone
 
-      # -------- Compile --------
+      # ---------- Compile ----------
       - name: Compile (ESP32-C3)
         shell: bash
         run: |
           set -e
-          arduino-cli compile --fqbn esp32:esp32:esp32c3 sketch/drone
+          arduino-cli compile \
+            --fqbn esp32:esp32:esp32c3 \
+            --output-dir out \
+            sketch/drone
 
-      # -------- Collect BIN --------
+      # ---------- Collect BIN files ----------
       - name: Collect BIN files
         shell: bash
         run: |
           set -e
-          mkdir -p out
-          find sketch/drone -type f -name "*.bin" -print
-          cp -v sketch/drone/build/esp32.esp32.esp32c3/*.bin out/
-          ls -lah out
+          mkdir -p firmware
+          find out -type f \( -name "*.bin" -o -name "*.elf" -o -name "*.map" \) -print -exec cp {} firmware/ \;
+          ls -la firmware
 
-      # -------- Upload Artifact --------
-      - name: Upload BIN (Artifacts)
+      # ---------- Upload Artifacts ----------
+      - name: Upload firmware artifacts
         uses: actions/upload-artifact@v4
         with:
           name: firmware
-          path: out/*.bin
+          path: firmware

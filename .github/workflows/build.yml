@@ -2,7 +2,7 @@ name: Build ESP32-C3 Firmware
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -13,39 +13,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ---------- Install Arduino CLI ----------
-      - name: Install Arduino CLI
-        shell: bash
-        run: |
-          set -e
-          mkdir -p "$HOME/arduino-cli"
-          cd "$HOME/arduino-cli"
-          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
-          echo "$HOME/arduino-cli/bin" >> $GITHUB_PATH
-          arduino-cli version
+      # ✅ Official Arduino CLI setup (NO PATH ERROR)
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v1
+        with:
+          version: latest
 
-      # ---------- Setup Arduino CLI config ----------
       - name: Init Arduino CLI
-        shell: bash
         run: |
-          set -e
           arduino-cli config init
           arduino-cli config set board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
-          arduino-cli config dump
 
-      # ---------- Install ESP32 core (LOCKED) ----------
-      - name: Install ESP32 core (2.0.17 locked)
-        shell: bash
+      # ✅ LOCK ESP32 CORE (important)
+      - name: Install ESP32 core 2.0.17
         run: |
-          set -e
           arduino-cli core update-index
           arduino-cli core install esp32:esp32@2.0.17
 
-      # ---------- Install Libraries ----------
       - name: Install Libraries
-        shell: bash
         run: |
-          set -e
           arduino-cli lib update-index
           arduino-cli lib install "ESP Async WebServer"
           arduino-cli lib install "AsyncTCP"
@@ -53,38 +39,20 @@ jobs:
           arduino-cli lib install "Adafruit Unified Sensor"
           arduino-cli lib install "Adafruit BusIO"
 
-      # ---------- Prepare Sketch Folder ----------
-      # Arduino CLI needs: folder name == .ino name
-      - name: Prepare Sketch Folder
-        shell: bash
+      - name: Prepare Sketch
         run: |
-          set -e
           mkdir -p sketch/drone
           cp drone.ino sketch/drone/drone.ino
-          ls -la sketch/drone
 
-      # ---------- Compile ----------
       - name: Compile (ESP32-C3)
-        shell: bash
         run: |
-          set -e
           arduino-cli compile \
             --fqbn esp32:esp32:esp32c3 \
-            --output-dir out \
+            --output-dir build \
             sketch/drone
 
-      # ---------- Collect BIN files ----------
-      - name: Collect BIN files
-        shell: bash
-        run: |
-          set -e
-          mkdir -p firmware
-          find out -type f \( -name "*.bin" -o -name "*.elf" -o -name "*.map" \) -print -exec cp {} firmware/ \;
-          ls -la firmware
-
-      # ---------- Upload Artifacts ----------
-      - name: Upload firmware artifacts
+      - name: Upload BIN
         uses: actions/upload-artifact@v4
         with:
           name: firmware
-          path: firmware
+          path: build/*.bin

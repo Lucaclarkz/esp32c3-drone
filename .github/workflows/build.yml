@@ -8,7 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,17 +26,17 @@ jobs:
           arduino-cli lib install "Adafruit MPU6050"
           arduino-cli lib install "Adafruit Unified Sensor"
 
-      - name: Create Sketch Folder
+      - name: Prepare sketch (folder name must match .ino name)
         run: |
-          mkdir sketch
-          mv drone.ino sketch/sketch.ino
+          mkdir -p sketch/drone
+          cp drone.ino sketch/drone/drone.ino
 
       - name: Compile
         run: |
-          arduino-cli compile --fqbn esp32:esp32:esp32c3 sketch
+          arduino-cli compile --fqbn esp32:esp32:esp32c3 sketch/drone
 
       - name: Upload BIN
         uses: actions/upload-artifact@v4
         with:
           name: firmware
-          path: sketch/build/*/*.bin
+          path: sketch/drone/build/*/*.bin

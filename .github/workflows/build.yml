@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,20 +21,23 @@ jobs:
           arduino-cli core update-index
           arduino-cli core install esp32:esp32
 
-      - name: Install libraries (Adafruit MPU6050)
+      - name: Install libraries
         run: |
           arduino-cli lib update-index
-          arduino-cli lib install "Adafruit MPU6050" "Adafruit Unified Sensor"
+          arduino-cli lib install "Adafruit MPU6050"
+          arduino-cli lib install "Adafruit Unified Sensor"
 
-      - name: Compile (ESP32-C3 Dev Module)
+      - name: Create Sketch Folder
         run: |
-          arduino-cli compile --fqbn esp32:esp32:esp32c3 .
+          mkdir sketch
+          mv drone.ino sketch/sketch.ino
 
-      - name: Upload BIN artifacts
+      - name: Compile
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32c3 sketch
+
+      - name: Upload BIN
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-bin
-          path: |
-            build/*/*.bin
-            build/*/*.elf
-            build/*/*.map
+          name: firmware
+          path: sketch/build/*/*.bin

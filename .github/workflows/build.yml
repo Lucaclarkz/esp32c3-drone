@@ -13,24 +13,24 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # ---------- Install Arduino CLI ----------
+      # ---------- Arduino CLI ကို Install လုပ်ပြီး Path မှန်အောင် သတ်မှတ်ခြင်း ----------
       - name: Install Arduino CLI
         run: |
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
-      # ---------- Configure CLI ----------
+      # ---------- ESP32 Core အတွက် URL သတ်မှတ်ခြင်း ----------
       - name: Configure Arduino CLI
         run: |
           arduino-cli config init
           arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 
-      # ---------- Install ESP32 Core ----------
+      # ---------- ESP32 Core (2.0.17) ကို Install လုပ်ခြင်း ----------
       - name: Install ESP32 Core
         run: |
           arduino-cli core install esp32:esp32@2.0.17 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 
-      # ---------- Install Libraries ----------
+      # ---------- ဒရုန်းအတွက် လိုအပ်သော Libraries များသွင်းခြင်း ----------
       - name: Install Libraries
         run: |
           arduino-cli lib install "ESP Async WebServer"
@@ -39,17 +39,17 @@ jobs:
           arduino-cli lib install "Adafruit Unified Sensor"
           arduino-cli lib install "Adafruit BusIO"
 
-      # ---------- Compile (Fix Path to Root) ----------
+      # ---------- Compile လုပ်ခြင်း (merged.bin ထွက်လာရန်) ----------
       - name: Compile ESP32-C3
         run: |
-          # လက်ရှိ root ထဲမှာ drone.ino ရှိနေလျှင် "." ကို သုံးပါ
+          # drone.ino က root မှာရှိလို့ "." ကို သုံးထားပါတယ်
           arduino-cli compile \
             --fqbn esp32:esp32:esp32c3 \
             --output-dir build \
             --export-binaries \
             .
 
-      # ---------- Upload BIN (Firmware artifacts) ----------
+      # ---------- ထွက်လာသော BIN ဖိုင်များကို Artifact အဖြစ် သိမ်းဆည်းခြင်း ----------
       - name: Upload Firmware
         uses: actions/upload-artifact@v4
         with:

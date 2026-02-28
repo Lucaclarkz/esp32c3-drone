@@ -10,13 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Arduino CLI
-        uses: arduino/setup-arduino-cli@v1
+      - uses: arduino/setup-arduino-cli@v1
 
-      - name: Install ESP32 core (PIN v2.0.17)
+      - name: Install ESP32 core
         run: |
           arduino-cli config init
           arduino-cli core update-index
@@ -24,30 +22,23 @@ jobs:
 
       - name: Install Libraries
         run: |
-          arduino-cli lib update-index
           arduino-cli lib install "Adafruit MPU6050"
           arduino-cli lib install "Adafruit Unified Sensor"
 
-      - name: Prepare Sketch Folder
+      - name: Prepare Sketch
         run: |
-          rm -rf sketch
-          mkdir -p sketch/drone
-          cp drone.ino sketch/drone/drone.ino
+          mkdir drone
+          cp drone.ino drone/drone.ino
 
       - name: Compile
         run: |
-          arduino-cli compile --fqbn esp32:esp32:esp32c3 sketch/drone
+          arduino-cli compile \
+          --fqbn esp32:esp32:esp32c3 \
+          --output-dir build \
+          drone
 
-      - name: Collect BIN files
-        run: |
-          echo "Searching for BIN files..."
-          find sketch -type f -name "*.bin" -print
-          mkdir -p out
-          find sketch -type f -name "*.bin" -exec cp {} out/ \;
-          ls -la out
-
-      - name: Upload Firmware (BIN)
+      - name: Upload BIN
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-bin
-          path: out/*.bin
+          name: firmware
+          path: build/*.bin

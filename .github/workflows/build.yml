@@ -2,12 +2,14 @@ name: Build ESP32-C3 Firmware
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -15,28 +17,30 @@ jobs:
       - name: Setup Arduino CLI
         uses: arduino/setup-arduino-cli@v1
 
-      - name: Install ESP32 core
+      - name: Install ESP32 core (PIN v2.0.17)
         run: |
+          arduino-cli config init
           arduino-cli core update-index
-          arduino-cli core install esp32:esp32
+          arduino-cli core install esp32:esp32@2.0.17
 
-      - name: Install libraries
+      - name: Install Libraries
         run: |
-          arduino-cli lib update-index
           arduino-cli lib install "Adafruit MPU6050"
           arduino-cli lib install "Adafruit Unified Sensor"
 
-      - name: Prepare sketch (folder name must match .ino name)
+      - name: Prepare Sketch Folder
         run: |
-          mkdir -p sketch/drone
-          cp drone.ino sketch/drone/drone.ino
+          mkdir sketch
+          cp drone.ino sketch/sketch.ino
 
       - name: Compile
         run: |
-          arduino-cli compile --fqbn esp32:esp32:esp32c3 sketch/drone
+          arduino-cli compile \
+          --fqbn esp32:esp32:esp32c3 \
+          sketch
 
       - name: Upload BIN
         uses: actions/upload-artifact@v4
         with:
           name: firmware
-          path: sketch/drone/build/*/*.bin
+          path: sketch/build/*/*.bin

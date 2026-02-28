@@ -2,7 +2,7 @@ name: Build ESP32-C3 Firmware
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -10,35 +10,56 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: arduino/setup-arduino-cli@v1
+      - name: Install Arduino CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+          echo "$HOME/bin" >> $GITHUB_PATH
+          arduino-cli version
 
       - name: Install ESP32 core
         run: |
           arduino-cli config init
+          arduino-cli config set library.enable_unsafe_install true
           arduino-cli core update-index
-          arduino-cli core install esp32:esp32@2.0.17
+          arduino-cli core install esp32:esp32 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core list
 
       - name: Install Libraries
         run: |
+          arduino-cli lib update-index
           arduino-cli lib install "Adafruit MPU6050"
           arduino-cli lib install "Adafruit Unified Sensor"
 
-      - name: Prepare Sketch
-        run: |
-          mkdir drone
-          cp drone.ino drone/drone.ino
+          # Async libs (required for #include <AsyncTCP.h> and <ESPAsyncWebServer.h>)
+          arduino-cli lib install "AsyncTCP"
+          arduino-cli lib install "ESP Async WebServer" || arduino-cli lib install "ESPAsyncWebServer"
 
-      - name: Compile
+      - name: Prepare Sketch Folder
         run: |
-          arduino-cli compile \
-          --fqbn esp32:esp32:esp32c3 \
-          --output-dir build \
-          drone
+          mkdir -p sketch
+          # Put your sketch in a folder named like the .ino file (Arduino rule)
+          mkdir -p sketch/drone
+          cp -f drone.ino sketch/drone/drone.ino
+          ls -lah sketch/drone
 
-      - name: Upload BIN
+      - name: Compile (ESP32-C3)
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32c3 sketch/drone
+
+      - name: Collect BIN files
+        run: |
+          mkdir -p out
+          # Arduino CLI output path pattern:
+          # sketch/drone/build/esp32.esp32.esp32c3/*.bin
+          find sketch/drone -type f -name "*.bin" -print
+          cp -v sketch/drone/build/esp32.esp32.esp32c3/*.bin out/ || true
+          ls -lah out
+
+      - name: Upload BIN (Artifacts)
         uses: actions/upload-artifact@v4
         with:
           name: firmware
-          path: build/*.bin
+          path: out/*.bin

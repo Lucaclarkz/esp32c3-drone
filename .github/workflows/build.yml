@@ -13,11 +13,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # ---------- Install Arduino CLI (Fixed Path) ----------
+      # ---------- Install Arduino CLI ----------
       - name: Install Arduino CLI
         run: |
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
-          # အခု install လုပ်လိုက်တဲ့ bin folder ကို path ထဲ တိုက်ရိုက်ထည့်ရန်
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
       # ---------- Configure CLI ----------
@@ -40,20 +39,20 @@ jobs:
           arduino-cli lib install "Adafruit Unified Sensor"
           arduino-cli lib install "Adafruit BusIO"
 
-      # ---------- Compile (Merged BIN ထွက်အောင်) ----------
+      # ---------- Compile (Fix Path to Root) ----------
       - name: Compile ESP32-C3
         run: |
-          # drone.ino ရှိတဲ့ နေရာအတိအကျကို ရွေးပေးပါ (ဥပမာ- root မှာဆိုရင် ".")
+          # လက်ရှိ root ထဲမှာ drone.ino ရှိနေလျှင် "." ကို သုံးပါ
           arduino-cli compile \
             --fqbn esp32:esp32:esp32c3 \
             --output-dir build \
             --export-binaries \
             .
 
-      # ---------- Upload BIN (ESPFlash အတွက်) ----------
+      # ---------- Upload BIN (Firmware artifacts) ----------
       - name: Upload Firmware
         uses: actions/upload-artifact@v4
         with:
-          name: esp32c3-drone-firmware
+          name: drone-firmware-binaries
           path: build/*.bin
           

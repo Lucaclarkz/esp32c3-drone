@@ -10,26 +10,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # ✅ Official Arduino CLI setup (NO PATH ERROR)
-      - name: Setup Arduino CLI
-        uses: arduino/setup-arduino-cli@v1
-        with:
-          version: latest
+      # ---------- Install Arduino CLI ----------
+      - name: Install Arduino CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+          echo "$HOME/bin" >> $GITHUB_PATH
+          arduino-cli version
 
-      - name: Init Arduino CLI
+      # ---------- Configure CLI ----------
+      - name: Configure Arduino CLI
         run: |
           arduino-cli config init
           arduino-cli config set board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
 
-      # ✅ LOCK ESP32 CORE (important)
-      - name: Install ESP32 core 2.0.17
+      # ---------- Install ESP32 Core (LOCKED) ----------
+      - name: Install ESP32 Core 2.0.17
         run: |
           arduino-cli core update-index
           arduino-cli core install esp32:esp32@2.0.17
 
+      # ---------- Install Libraries ----------
       - name: Install Libraries
         run: |
           arduino-cli lib update-index
@@ -39,19 +41,22 @@ jobs:
           arduino-cli lib install "Adafruit Unified Sensor"
           arduino-cli lib install "Adafruit BusIO"
 
+      # ---------- Prepare Sketch ----------
       - name: Prepare Sketch
         run: |
           mkdir -p sketch/drone
           cp drone.ino sketch/drone/drone.ino
 
-      - name: Compile (ESP32-C3)
+      # ---------- Compile ----------
+      - name: Compile ESP32-C3
         run: |
           arduino-cli compile \
             --fqbn esp32:esp32:esp32c3 \
             --output-dir build \
             sketch/drone
 
-      - name: Upload BIN
+      # ---------- Upload BIN ----------
+      - name: Upload Firmware
         uses: actions/upload-artifact@v4
         with:
           name: firmware

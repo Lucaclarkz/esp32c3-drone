@@ -2,7 +2,7 @@ name: Build ESP32-C3 Firmware
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -13,51 +13,64 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ---------- Install Arduino CLI (FIX: add to PATH correctly) ----------
       - name: Install Arduino CLI
         run: |
+          set -e
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
-          echo "$HOME/bin" >> $GITHUB_PATH
+          # The installer places arduino-cli in ./bin relative to repo workspace
+          echo "${GITHUB_WORKSPACE}/bin" >> "$GITHUB_PATH"
+          echo "Arduino CLI at: $(which arduino-cli)"
           arduino-cli version
 
+      # ---------- Install ESP32 core ----------
       - name: Install ESP32 core
         run: |
-          arduino-cli config init
-          arduino-cli config set library.enable_unsafe_install true
-          arduino-cli core update-index
+          set -e
+          arduino-cli config init --overwrite
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           arduino-cli core install esp32:esp32 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           arduino-cli core list
 
+      # ---------- Install libraries ----------
       - name: Install Libraries
         run: |
+          set -e
           arduino-cli lib update-index
           arduino-cli lib install "Adafruit MPU6050"
           arduino-cli lib install "Adafruit Unified Sensor"
-
-          # Async libs (required for #include <AsyncTCP.h> and <ESPAsyncWebServer.h>)
+          # Async libs for ESPAsyncWebServer
           arduino-cli lib install "AsyncTCP"
+          # Some indexes use different name
           arduino-cli lib install "ESP Async WebServer" || arduino-cli lib install "ESPAsyncWebServer"
+          arduino-cli lib list | grep -E "AsyncTCP|ESP Async WebServer|ESPAsyncWebServer|Adafruit MPU6050|Adafruit Unified Sensor" || true
 
+      # ---------- Prepare sketch folder (Arduino rule) ----------
       - name: Prepare Sketch Folder
         run: |
-          mkdir -p sketch
-          # Put your sketch in a folder named like the .ino file (Arduino rule)
+          set -e
           mkdir -p sketch/drone
           cp -f drone.ino sketch/drone/drone.ino
           ls -lah sketch/drone
 
+      # ---------- Compile ----------
       - name: Compile (ESP32-C3)
         run: |
+          set -e
           arduino-cli compile --fqbn esp32:esp32:esp32c3 sketch/drone
 
+      # ---------- Collect BIN ----------
       - name: Collect BIN files
         run: |
+          set -e
           mkdir -p out
-          # Arduino CLI output path pattern:
-          # sketch/drone/build/esp32.esp32.esp32c3/*.bin
+          echo "Searching BINs..."
           find sketch/drone -type f -name "*.bin" -print
-          cp -v sketch/drone/build/esp32.esp32.esp32c3/*.bin out/ || true
+          # Default output path for arduino-cli
+          cp -v sketch/drone/build/esp32.esp32.esp32c3/*.bin out/
           ls -lah out
 
+      # ---------- Upload Artifact ----------
       - name: Upload BIN (Artifacts)
         uses: actions/upload-artifact@v4
         with:

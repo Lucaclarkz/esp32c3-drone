@@ -2,8 +2,7 @@ name: Build ESP32-C3 Firmware
 
 on:
   push:
-    branches:
-      - main
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -25,22 +24,30 @@ jobs:
 
       - name: Install Libraries
         run: |
+          arduino-cli lib update-index
           arduino-cli lib install "Adafruit MPU6050"
           arduino-cli lib install "Adafruit Unified Sensor"
 
       - name: Prepare Sketch Folder
         run: |
-          mkdir sketch
-          cp drone.ino sketch/sketch.ino
+          rm -rf sketch
+          mkdir -p sketch/drone
+          cp drone.ino sketch/drone/drone.ino
 
       - name: Compile
         run: |
-          arduino-cli compile \
-          --fqbn esp32:esp32:esp32c3 \
-          sketch
+          arduino-cli compile --fqbn esp32:esp32:esp32c3 sketch/drone
 
-      - name: Upload BIN
+      - name: Collect BIN files
+        run: |
+          echo "Searching for BIN files..."
+          find sketch -type f -name "*.bin" -print
+          mkdir -p out
+          find sketch -type f -name "*.bin" -exec cp {} out/ \;
+          ls -la out
+
+      - name: Upload Firmware (BIN)
         uses: actions/upload-artifact@v4
         with:
-          name: firmware
-          path: sketch/build/*/*.bin
+          name: firmware-bin
+          path: out/*.bin

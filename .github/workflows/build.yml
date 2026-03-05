@@ -23,14 +23,13 @@ jobs:
 
       - name: Install Drone Libraries
         run: |
-          # Library နာမည်များကို CLI format အတိုင်း ပြင်ဆင်ထားသည်
           arduino-cli lib install "ESP Async WebServer"
           arduino-cli lib install "AsyncTCP"
           arduino-cli lib install "MPU6050_light"
 
       - name: Compile Drone Firmware
         run: |
-          # drone.ino ဖိုင်ကို တိုက်ရိုက် Compile လုပ်ခြင်း
+          # လက်ရှိ Repo ထဲက ဖိုင်နာမည် drone.ino ဖြစ်လို့ အဲဒီအတိုင်း ပြင်ထားပါတယ်
           arduino-cli compile --fqbn esp32:esp32:esp32c3 --output-dir build drone.ino
 
       - name: Upload Binaries

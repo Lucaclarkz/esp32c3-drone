@@ -29,7 +29,6 @@ jobs:
 
       - name: Compile Drone Firmware
         run: |
-          # လက်ရှိ Repo ထဲက ဖိုင်နာမည် drone.ino ဖြစ်လို့ အဲဒီအတိုင်း ပြင်ထားပါတယ်
           arduino-cli compile --fqbn esp32:esp32:esp32c3 --output-dir build drone.ino
 
       - name: Upload Binaries

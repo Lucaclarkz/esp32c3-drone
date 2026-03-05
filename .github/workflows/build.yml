@@ -38,4 +38,3 @@ jobs:
         with:
           name: drone-c3-firmware
           path: output/*.bin
-          

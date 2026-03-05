@@ -4,99 +4,68 @@
 #include <Wire.h>
 #include <MPU6050_light.h>
 
-// WiFi Settings
-const char* ssid = "ESP32-Drone-C3";
-const char* password = "password123";
-
-// GPIOs
-const int M1_PIN = 21, M2_PIN = 20, M3_PIN = 10, M4_PIN = 5;
-const int LED_PIN = 8;
-
+const int M1 = 21, M2 = 20, M3 = 10, M4 = 5, LED = 8;
 MPU6050 mpu(Wire);
 AsyncWebServer server(80);
 
-// Drone States
 int throttle = 0;
-float roll_input = 0, pitch_input = 0;
-float pid_p = 1.3;
+float roll_in = 0, pitch_in = 0;
 
-// Web Page with Slider and Joystick
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ESP32 Drone Control</title>
 <style>
-  body { font-family: Arial; text-align: center; background: #1a1a1a; color: white; }
-  .slider { width: 80%; height: 25px; background: #444; }
-  .data-box { background: #333; padding: 10px; border-radius: 10px; margin: 10px auto; width: 80%; }
+  body { background:#1a1a1a; color:white; font-family:sans-serif; text-align:center; touch-action:none; }
+  .slider { width:80%; height:30px; margin:20px; }
+  .joy-base { width:200px; height:200px; background:#333; border-radius:50%; margin:20px auto; position:relative; }
+  .stick { width:60px; height:60px; background:#00ff88; border-radius:50%; position:absolute; top:70px; left:70px; }
 </style></head>
 <body>
-  <h1>Drone Master C3</h1>
-  <div class="data-box">
-    Roll: <span id="roll">0</span> | Pitch: <span id="pitch">0</span>
-  </div>
-  <h3>Throttle</h3>
-  <input type="range" min="0" max="255" value="0" class="slider" oninput="sendThrottle(this.value)">
-  <div id="joystick" style="width:200px; height:200px; background:#444; margin: 20px auto; border-radius:50%;">Joystick Space</div>
+  <h2>Drone Web Controller</h2>
+  <p>Roll: <span id="r">0</span> | Pitch: <span id="p">0</span></p>
+  <input type="range" min="0" max="255" value="0" class="slider" oninput="fetch(`/t?v=${this.value}`)">
+  <div class="joy-base" id="base"><div class="stick" id="stick"></div></div>
   <script>
-    function sendThrottle(val) { fetch(`/throttle?v=${val}`); }
-    setInterval(() => {
-      fetch('/data').then(r => r.json()).then(d => {
-        document.getElementById('roll').innerText = d.r;
-        document.getElementById('pitch').innerText = d.p;
-      });
-    }, 200);
+    setInterval(() => { fetch('/d').then(r=>r.json()).then(d=>{document.getElementById('r').innerText=d.r;document.getElementById('p').innerText=d.p;}); }, 200);
+    const b=document.getElementById('base'), s=document.getElementById('stick');
+    b.ontouchmove=(e)=>{
+      let x=e.touches[0].clientX-b.offsetLeft-100, y=e.touches[0].clientY-b.offsetTop-100;
+      s.style.transform=`translate(${x}px,${y}px)`;
+      fetch(`/j?x=${x/5}&y=${-y/5}`);
+    };
+    b.ontouchend=()=>{ s.style.transform='translate(0,0)'; fetch('/j?x=0&y=0'); };
   </script>
 </body></html>)rawliteral";
 
 void setup() {
-  Serial.begin(115200);
-  pinMode(LED_PIN, OUTPUT);
-  Wire.begin(7, 6);
+  Serial.begin(115200); pinMode(LED, OUTPUT); Wire.begin(7, 6);
+  WiFi.softAP("ESP32-Drone", "12345678");
+  
+  // Status LED: Blink then Stay On
+  for(int i=0; i<6; i++) { digitalWrite(LED, !digitalRead(LED)); delay(200); }
+  digitalWrite(LED, HIGH);
 
-  // WiFi AP Mode & Blink LED during setup
-  WiFi.softAP(ssid, password);
-  for(int i=0; i<10; i++) { digitalWrite(LED_PIN, !digitalRead(LED_PIN)); delay(100); }
-  digitalWrite(LED_PIN, HIGH); // WiFi Stable On
+  ledcAttach(M1, 500, 8); ledcAttach(M2, 500, 8);
+  ledcAttach(M3, 500, 8); ledcAttach(M4, 500, 8);
 
-  // Motor Attach
-  ledcAttach(M1_PIN, 500, 8); ledcAttach(M2_PIN, 500, 8);
-  ledcAttach(M3_PIN, 500, 8); ledcAttach(M4_PIN, 500, 8);
+  mpu.begin(); delay(1000); mpu.calcOffsets();
 
-  mpu.begin();
-  delay(1000);
-  mpu.calcOffsets();
-
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send_P(200, "text/html", index_html);
-  });
-
-  server.on("/throttle", HTTP_GET, [](AsyncWebServerRequest *request){
-    if (request->hasParam("v")) throttle = request->getParam("v")->value().toInt();
-    request->send(200);
-  });
-
-  server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request){
-    String json = "{\"r\":" + String(mpu.getAngleX()) + ",\"p\":" + String(mpu.getAngleY()) + "}";
-    request->send(200, "application/json", json);
-  });
-
+  server.on("/", [](AsyncWebServerRequest *r){ r->send_P(200, "text/html", index_html); });
+  server.on("/t", [](AsyncWebServerRequest *r){ throttle = r->getParam("v")->value().toInt(); r->send(200); });
+  server.on("/j", [](AsyncWebServerRequest *r){ roll_in = r->getParam("x")->value().toFloat(); pitch_in = r->getParam("y")->value().toFloat(); r->send(200); });
+  server.on("/d", [](AsyncWebServerRequest *r){ r->send(200, "application/json", "{\"r\":"+String(mpu.getAngleX())+",\"p\":"+String(mpu.getAngleY())+"}"); });
   server.begin();
 }
 
 void loop() {
   mpu.update();
-
-  float out_roll = pid_p * (mpu.getAngleX() - roll_input);
-  float out_pitch = pid_p * (mpu.getAngleY() - pitch_input);
-
-  if (throttle < 20) {
-    ledcWrite(M1_PIN, 0); ledcWrite(M2_PIN, 0);
-    ledcWrite(M3_PIN, 0); ledcWrite(M4_PIN, 0);
-  } else {
-    ledcWrite(M1_PIN, constrain(throttle - out_pitch + out_roll, 0, 255));
-    ledcWrite(M2_PIN, constrain(throttle - out_pitch - out_roll, 0, 255));
-    ledcWrite(M3_PIN, constrain(throttle + out_pitch - out_roll, 0, 255));
-    ledcWrite(M4_PIN, constrain(throttle + out_pitch + out_roll, 0, 255));
+  float r_out = 1.3 * (mpu.getAngleX() - roll_in);
+  float p_out = 1.3 * (mpu.getAngleY() - pitch_in);
+  if (throttle < 20) { ledcWrite(M1,0); ledcWrite(M2,0); ledcWrite(M3,0); ledcWrite(M4,0); }
+  else {
+    ledcWrite(M1, constrain(throttle - p_out + r_out, 0, 255));
+    ledcWrite(M2, constrain(throttle - p_out - r_out, 0, 255));
+    ledcWrite(M3, constrain(throttle + p_out - r_out, 0, 255));
+    ledcWrite(M4, constrain(throttle + p_out + r_out, 0, 255));
   }
   delay(10);
 }

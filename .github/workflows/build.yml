@@ -29,12 +29,13 @@ jobs:
 
       - name: Compile Drone Firmware
         run: |
-          # လက်ရှိ ရှိနေတဲ့ .ino ဖိုင်ကို နာမည်တူ Folder ဆောက်ပြီး ထည့်သွင်းခြင်း
-          find . -maxdepth 1 -name "*.ino" -exec sh -c 'mkdir -p "${1%.*}" && cp "$1" "${1%.*}/" && arduino-cli compile --fqbn esp32:esp32:esp32c3 --output-dir build "${1%.*}/$1"' _ {} \;
+          # Create build directory and compile
+          mkdir -p output
+          arduino-cli compile --fqbn esp32:esp32:esp32c3 --output-dir output drone.ino
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v4
         with:
           name: drone-c3-firmware
-          path: build/*.bin
+          path: output/*.bin
           

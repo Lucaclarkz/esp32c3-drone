@@ -29,7 +29,10 @@ jobs:
 
       - name: Compile Drone Firmware
         run: |
-          arduino-cli compile --fqbn esp32:esp32:esp32c3 --output-dir build drone.ino
+          # Create a dummy folder to satisfy Arduino CLI requirements
+          mkdir drone_project
+          cp drone.ino drone_project/drone_project.ino
+          arduino-cli compile --fqbn esp32:esp32:esp32c3 --output-dir build drone_project/drone_project.ino
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v4

@@ -18,7 +18,6 @@ jobs:
       - name: Configure ESP32 Core
         run: |
           arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-          # ESP32 Core version 2.0.17 ကို သုံးရန် အတင်းအကျပ် သတ်မှတ်ခြင်း
           arduino-cli core install esp32:esp32@2.0.17 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 
       - name: Install Drone Libraries

@@ -39,11 +39,18 @@ const char index_html[] PROGMEM = R"rawliteral(
 void setup() {
   Serial.begin(115200); pinMode(LED, OUTPUT); Wire.begin(7, 6);
   WiFi.softAP("ESP32-C3-DRONE", "12345678");
+  
   for(int i=0; i<10; i++){ digitalWrite(LED, !digitalRead(LED)); delay(100); }
   digitalWrite(LED, HIGH);
-  ledcAttach(M1, 500, 8); ledcAttach(M2, 500, 8);
-  ledcAttach(M3, 500, 8); ledcAttach(M4, 500, 8);
+
+  // ESP32 Core v2.0.x အတွက် PWM setup ပြုလုပ်ခြင်း
+  ledcSetup(0, 500, 8); ledcAttachPin(M1, 0);
+  ledcSetup(1, 500, 8); ledcAttachPin(M2, 1);
+  ledcSetup(2, 500, 8); ledcAttachPin(M3, 2);
+  ledcSetup(3, 500, 8); ledcAttachPin(M4, 3);
+
   mpu.begin(); delay(1000); mpu.calcOffsets();
+
   server.on("/", [](AsyncWebServerRequest *r){ r->send_P(200, "text/html", index_html); });
   server.on("/t", [](AsyncWebServerRequest *r){ if(r->hasParam("v")) throttle = r->getParam("v")->value().toInt(); r->send(200); });
   server.on("/j", [](AsyncWebServerRequest *r){ if(r->hasParam("x")) roll_in = r->getParam("x")->value().toFloat(); if(r->hasParam("y")) pitch_in = r->getParam("y")->value().toFloat(); r->send(200); });
@@ -55,12 +62,14 @@ void loop() {
   mpu.update();
   float r_out = 1.3 * (mpu.getAngleX() - roll_in);
   float p_out = 1.3 * (mpu.getAngleY() - pitch_in);
-  if (throttle < 20) { ledcWrite(M1,0); ledcWrite(M2,0); ledcWrite(M3,0); ledcWrite(M4,0); }
-  else {
-    ledcWrite(M1, constrain(throttle - p_out + r_out, 0, 255));
-    ledcWrite(M2, constrain(throttle - p_out - r_out, 0, 255));
-    ledcWrite(M3, constrain(throttle + p_out - r_out, 0, 255));
-    ledcWrite(M4, constrain(throttle + p_out + r_out, 0, 255));
+  
+  if (throttle < 20) {
+    ledcWrite(0, 0); ledcWrite(1, 0); ledcWrite(2, 0); ledcWrite(3, 0);
+  } else {
+    ledcWrite(0, constrain(throttle - p_out + r_out, 0, 255));
+    ledcWrite(1, constrain(throttle - p_out - r_out, 0, 255));
+    ledcWrite(2, constrain(throttle + p_out - r_out, 0, 255));
+    ledcWrite(3, constrain(throttle + p_out + r_out, 0, 255));
   }
   delay(10);
 }

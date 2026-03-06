@@ -17,7 +17,6 @@ jobs:
 
       - name: Configure ESP32 Core
         run: |
-          arduino-cli config init
           arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
           arduino-cli core install esp32:esp32 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 
@@ -29,10 +28,9 @@ jobs:
 
       - name: Compile Drone Firmware
         run: |
-          # Create a specific folder for the sketch to avoid naming conflicts
-          mkdir -p build_dir
-          cp drone.ino build_dir/build_dir.ino
-          arduino-cli compile --fqbn esp32:esp32:esp32c3 --output-dir final_output build_dir/build_dir.ino
+          mkdir -p drone_build
+          cp drone.ino drone_build/drone_build.ino
+          arduino-cli compile --fqbn esp32:esp32:esp32c3 --output-dir final_output drone_build/drone_build.ino
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v4

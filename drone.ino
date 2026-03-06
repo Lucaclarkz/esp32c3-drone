@@ -1,9 +1,10 @@
-#include <WiFi.h>
+ #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <Wire.h>
 #include <MPU6050_light.h>
 
+// Motor Pins
 const int M1 = 21, M2 = 20, M3 = 10, M4 = 5, LED = 8;
 MPU6050 mpu(Wire);
 AsyncWebServer server(80);
@@ -43,18 +44,19 @@ void setup() {
   for(int i=0; i<10; i++){ digitalWrite(LED, !digitalRead(LED)); delay(100); }
   digitalWrite(LED, HIGH);
 
-  // ESP32 Core v2.0.x အတွက် PWM setup ပြုလုပ်ခြင်း
+  // ESP32 Core v2.x.x compatibility setup
   ledcSetup(0, 500, 8); ledcAttachPin(M1, 0);
   ledcSetup(1, 500, 8); ledcAttachPin(M2, 1);
   ledcSetup(2, 500, 8); ledcAttachPin(M3, 2);
   ledcSetup(3, 500, 8); ledcAttachPin(M4, 3);
 
-  mpu.begin(); delay(1000); mpu.calcOffsets();
+  if(mpu.begin() != 0) { while(1) { digitalWrite(LED, !digitalRead(LED)); delay(50); } }
+  delay(1000); mpu.calcOffsets();
 
   server.on("/", [](AsyncWebServerRequest *r){ r->send_P(200, "text/html", index_html); });
   server.on("/t", [](AsyncWebServerRequest *r){ if(r->hasParam("v")) throttle = r->getParam("v")->value().toInt(); r->send(200); });
   server.on("/j", [](AsyncWebServerRequest *r){ if(r->hasParam("x")) roll_in = r->getParam("x")->value().toFloat(); if(r->hasParam("y")) pitch_in = r->getParam("y")->value().toFloat(); r->send(200); });
-  server.on("/d", [](AsyncWebServerRequest *r){ r->send(200, "application/json", "{\"r\":"+String(mpu.getAngleX())+",\"p\":"+String(mpu.getAngleY())+"}"); });
+  server.on("/d", [](AsyncWebServerRequest *r){ r->send(200, "application/json", "{\"r\":"+String((int)mpu.getAngleX())+",\"p\":"+String((int)mpu.getAngleY())+"}"); });
   server.begin();
 }
 

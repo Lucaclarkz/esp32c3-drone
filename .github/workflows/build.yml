@@ -22,8 +22,6 @@ jobs:
 
       - name: Install Drone Libraries
         run: |
-          arduino-cli lib install "ESP Async WebServer"
-          arduino-cli lib install "AsyncTCP"
           arduino-cli lib install "MPU6050_light"
 
       - name: Compile Drone Firmware
@@ -37,4 +35,3 @@ jobs:
         with:
           name: drone-c3-firmware
           path: final_output/*.bin
-          

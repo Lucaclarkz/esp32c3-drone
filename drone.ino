@@ -17,23 +17,20 @@ const char index_html[] PROGMEM = R"rawliteral(
   body { background:#1a1a1a; color:white; font-family:sans-serif; text-align:center; touch-action:none; }
   .slider { width:80%; height:40px; margin:20px; accent-color: #00ff88; }
   .joy-base { width:180px; height:180px; background:#333; border-radius:50%; margin:20px auto; position:relative; border: 2px solid #555; }
-  .stick { width:60px; height:60px; background:#00ff88; border-radius:50%; position:absolute; top:60px; left:60px; box-shadow: 0 0 15px #00ff88; }
-  .data { font-size: 1.2rem; color: #00ff88; font-weight: bold; }
+  .stick { width:60px; height:60px; background:#00ff88; border-radius:50%; position:absolute; top:60px; left:60px; }
 </style></head>
 <body>
   <h2>C3 DRONE MASTER</h2>
-  <div class="data">Roll: <span id="r">0</span> | Pitch: <span id="p">0</span></div>
-  <p>THROTTLE</p>
+  <p>Roll: <span id="r">0</span> | Pitch: <span id="p">0</span></p>
   <input type="range" min="0" max="255" value="0" class="slider" oninput="fetch(`/t?v=${this.value}`)">
   <div class="joy-base" id="base"><div class="stick" id="stick"></div></div>
   <script>
-    setInterval(() => { fetch('/d').then(r=>r.json()).then(d=>{document.getElementById('r').innerText=d.r;document.getElementById('p').innerText=d.p;}); }, 250);
+    setInterval(() => { fetch('/d').then(r=>r.json()).then(d=>{document.getElementById('r').innerText=d.r;document.getElementById('p').innerText=d.p;}); }, 300);
     const b=document.getElementById('base'), s=document.getElementById('stick');
     b.ontouchmove=(e)=>{
       let x=e.touches[0].clientX-b.offsetLeft-90, y=e.touches[0].clientY-b.offsetTop-90;
-      x = Math.max(-60, Math.min(60, x)); y = Math.max(-60, Math.min(60, y));
       s.style.transform=`translate(${x}px,${y}px)`;
-      fetch(`/j?x=${x/4}&y=${-y/4}`);
+      fetch(`/j?x=${x/5}&y=${-y/5}`);
     };
     b.ontouchend=()=>{ s.style.transform='translate(0,0)'; fetch('/j?x=0&y=0'); };
   </script>
@@ -41,23 +38,16 @@ const char index_html[] PROGMEM = R"rawliteral(
 
 void setup() {
   Serial.begin(115200); pinMode(LED, OUTPUT); Wire.begin(7, 6);
-  
   WiFi.softAP("ESP32-C3-DRONE", "12345678");
-  
-  // WiFi LED Status: Blink 5 times then Stable ON
   for(int i=0; i<10; i++){ digitalWrite(LED, !digitalRead(LED)); delay(100); }
   digitalWrite(LED, HIGH);
-
   ledcAttach(M1, 500, 8); ledcAttach(M2, 500, 8);
   ledcAttach(M3, 500, 8); ledcAttach(M4, 500, 8);
-
-  if(mpu.begin() != 0) { while(1) { digitalWrite(LED, !digitalRead(LED)); delay(50); } }
-  delay(1000); mpu.calcOffsets();
-
+  mpu.begin(); delay(1000); mpu.calcOffsets();
   server.on("/", [](AsyncWebServerRequest *r){ r->send_P(200, "text/html", index_html); });
-  server.on("/t", [](AsyncWebServerRequest *r){ throttle = r->getParam("v")->value().toInt(); r->send(200); });
-  server.on("/j", [](AsyncWebServerRequest *r){ roll_in = r->getParam("x")->value().toFloat(); pitch_in = r->getParam("y")->value().toFloat(); r->send(200); });
-  server.on("/d", [](AsyncWebServerRequest *r){ r->send(200, "application/json", "{\"r\":"+String((int)mpu.getAngleX())+",\"p\":"+String((int)mpu.getAngleY())+"}"); });
+  server.on("/t", [](AsyncWebServerRequest *r){ if(r->hasParam("v")) throttle = r->getParam("v")->value().toInt(); r->send(200); });
+  server.on("/j", [](AsyncWebServerRequest *r){ if(r->hasParam("x")) roll_in = r->getParam("x")->value().toFloat(); if(r->hasParam("y")) pitch_in = r->getParam("y")->value().toFloat(); r->send(200); });
+  server.on("/d", [](AsyncWebServerRequest *r){ r->send(200, "application/json", "{\"r\":"+String(mpu.getAngleX())+",\"p\":"+String(mpu.getAngleY())+"}"); });
   server.begin();
 }
 
